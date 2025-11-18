@@ -2,6 +2,7 @@ import React from 'react'
 import { Link, NavLink } from 'react-router-dom'
 import { ShoppingCart, Menu, Search } from 'lucide-react'
 import { useLang } from './LanguageProvider'
+import CookieBanner from './CookieBanner'
 
 export default function Layout({ children, cartCount = 0, onSearch }) {
   const { t, lang, setLang } = useLang()
@@ -22,6 +23,7 @@ export default function Layout({ children, cartCount = 0, onSearch }) {
             <NavLink to="/blog" className={({isActive})=>isActive? 'text-emerald-800' : 'text-slate-700 hover:text-emerald-800'}>{nav.blog}</NavLink>
             <NavLink to="/faq" className={({isActive})=>isActive? 'text-emerald-800' : 'text-slate-700 hover:text-emerald-800'}>{nav.faq}</NavLink>
             <NavLink to="/contact" className={({isActive})=>isActive? 'text-emerald-800' : 'text-slate-700 hover:text-emerald-800'}>{nav.contact}</NavLink>
+            <NavLink to="/admin" className={({isActive})=>isActive? 'text-emerald-800' : 'text-slate-700 hover:text-emerald-800'}>Admin</NavLink>
           </nav>
           <div className="ml-auto flex items-center gap-3">
             <div className="relative">
@@ -71,6 +73,7 @@ export default function Layout({ children, cartCount = 0, onSearch }) {
         </div>
         <div className="text-center text-xs text-slate-500 py-4">© {new Date().getFullYear()} Bambu & Co</div>
       </footer>
+      <CookieBanner />
     </div>
   )
 }
