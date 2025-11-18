@@ -11,8 +11,19 @@ export default function CartCheckout(){
   const [email, setEmail] = useState('')
   const [shipping, setShipping] = useState('standard')
   const [address, setAddress] = useState({first_name:'', last_name:'', address1:'', address2:'', postal_code:'', city:'', country:'SE'})
+  const [settings, setSettings] = useState(null)
+  const [loading, setLoading] = useState(false)
 
   useEffect(()=>{ localStorage.setItem('bambu_cart', JSON.stringify(items)) }, [items])
+  useEffect(()=>{
+    (async()=>{
+      try{
+        const res = await fetch(`${API}/settings`)
+        const data = await res.json()
+        setSettings(data)
+      }catch(e){ /* ignore */ }
+    })()
+  }, [])
 
   const subtotal = items.reduce((s,i)=> s + i.price * i.qty, 0)
   const taxRate = country==='SE' ? 0.25 : 0.0
@@ -20,27 +31,51 @@ export default function CartCheckout(){
   const shippingCost = country==='SE' ? (subtotal>=800?0:49) : (country==='EU' ? (subtotal>=1200?0:99) : 149)
   const total = subtotal + tax + shippingCost
 
-  const placeOrder = async (e)=>{
-    e.preventDefault()
-    const order = {
-      line_items: items.map(i=>({product_id:i.product_id, sku:i.sku, qty:i.qty, price:i.price})),
-      totals: {subtotal, tax, shipping: shippingCost, total},
-      shipping_address: address,
-      billing_address: address,
-      payment_info: {method:'test', status:'pending'}
-    }
-    const res = await fetch(`${API}/orders`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(order)})
-    const data = await res.json()
-    alert(`Order skapad: ${data.order_number}`)
-    setItems([])
+  const baseOrder = {
+    line_items: items.map(i=>({product_id:i.product_id, sku:i.sku, qty:i.qty, price:i.price})),
+    totals: {subtotal, tax, shipping: shippingCost, total},
+    shipping_address: address,
+    billing_address: address,
   }
+
+  const placeOrderDemo = async (e)=>{
+    e.preventDefault()
+    setLoading(true)
+    try{
+      const order = { ...baseOrder, payment_info: {method:'test', status:'pending'} }
+      const res = await fetch(`${API}/orders`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(order)})
+      const data = await res.json()
+      alert(`Order skapad: ${data.order_number}`)
+      setItems([])
+    } finally { setLoading(false) }
+  }
+
+  const payWithStripe = async (e)=>{
+    e.preventDefault()
+    setLoading(true)
+    try{
+      const success = window.location.origin + '/checkout'
+      const cancel = window.location.href
+      const payload = { ...baseOrder, locale: 'sv', success_url: success, cancel_url: cancel }
+      const res = await fetch(`${API}/payments/stripe/checkout`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)})
+      if(!res.ok){
+        const msg = await res.text()
+        alert('Kunde inte initiera Stripe: ' + msg)
+        return
+      }
+      const data = await res.json()
+      if(data.url){ window.location.href = data.url }
+    } finally { setLoading(false) }
+  }
+
+  const stripeEnabled = !!settings?.payment?.stripe_public && !!settings?.payment?.stripe_secret
 
   return (
     <Layout cartCount={items.length}>
       <section className="max-w-7xl mx-auto px-4 sm:px-6 py-10 grid lg:grid-cols-2 gap-10">
         <div>
           <h1 className="text-2xl font-semibold mb-4">Kassa</h1>
-          <form onSubmit={placeOrder} className="space-y-4">
+          <form className="space-y-4">
             <input required placeholder="E-post" type="email" value={email} onChange={e=>setEmail(e.target.value)} className="w-full border rounded px-3 py-2"/>
             <div className="grid grid-cols-2 gap-3">
               <input required placeholder="Förnamn" className="border rounded px-3 py-2" value={address.first_name} onChange={e=>setAddress({...address, first_name:e.target.value})}/>
@@ -62,7 +97,12 @@ export default function CartCheckout(){
               <label className="flex items-center gap-2"><input type="radio" checked={shipping==='standard'} onChange={()=>setShipping('standard')}/> Standard (2–5 vardagar)</label>
               <label className="flex items-center gap-2"><input type="radio" checked={shipping==='express'} onChange={()=>setShipping('express')}/> Express (1–2 vardagar)</label>
             </div>
-            <button className="bg-emerald-800 text-white rounded px-5 py-3">Betala (demo)</button>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button onClick={placeOrderDemo} disabled={loading} className="bg-emerald-800 text-white rounded px-5 py-3 disabled:opacity-60">Betala (demo)</button>
+              {stripeEnabled && (
+                <button onClick={payWithStripe} disabled={loading} className="bg-black text-white rounded px-5 py-3 disabled:opacity-60">Betala med kort (Stripe)</button>
+              )}
+            </div>
           </form>
         </div>
         <div>
