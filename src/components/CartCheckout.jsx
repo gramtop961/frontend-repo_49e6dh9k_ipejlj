@@ -54,7 +54,7 @@ export default function CartCheckout(){
     e.preventDefault()
     setLoading(true)
     try{
-      const success = window.location.origin + '/checkout'
+      const success = window.location.origin + '/order'
       const cancel = window.location.href
       const payload = { ...baseOrder, locale: 'sv', success_url: success, cancel_url: cancel }
       const res = await fetch(`${API}/payments/stripe/checkout`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)})
